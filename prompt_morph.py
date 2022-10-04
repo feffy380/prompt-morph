@@ -193,6 +193,11 @@ def sum_along_slices_of_dim_0(t: torch.Tensor, arities: Iterable[int]) -> torch.
     return torch.cat(sums).to(device)
 
 
+def n_evenly_spaced(a, n):
+    k, m = divmod(len(a), n)
+    return [a[i*k+min(i, m)] for i in range(n)]
+
+
 """
 Interpolate from one prompt to another to create a morph sequence.
 """
@@ -215,6 +220,9 @@ class Script(scripts.Script):
         # override batch count and size
         p.batch_size = 1
         p.n_iter = 1
+
+        # fix seed because we'll be reusing it
+        processing.fix_seed(p)
 
         # write images to a numbered folder in morphs
         morph_path = os.path.join(p.outpath_samples, "morphs")
@@ -254,7 +262,6 @@ class Script(scripts.Script):
             return denoised
         sd_samplers.CFGDenoiser.forward = forward
 
-        # TODO: make grid toggleable. limit number of images kept in memory/shown in the ui to avoid lag
         # TODO: interpolate between multiple prompts like keyframes
             # TODO: generate video directly with moviepy
         # TODO: integrate seed travel so end prompt can use different seed
@@ -271,11 +278,14 @@ class Script(scripts.Script):
 
             processed = process_images(p)
             all_images.append(processed.images[0])
-        # if opts.return_grid:
-        #     grid = images.image_grid(all_images)
-        #     all_images  = [grid] + all_images
-        #     if opts.grid_save:
-        #         images.save_image(grid, p.outpath_grids, "grid", p.all_seeds[0], p.all_prompts[0], opts.grid_format, info=p.infotext(), short_filename=not opts.grid_extended_filename, p=p, grid=True)
+        # limit max images shown to avoid lagging out the interface
+        if len(all_images) > 25:
+            all_images = n_evenly_spaced(all_images, 25)
+        if opts.return_grid:
+            grid = images.image_grid(all_images)
+            all_images  = [grid] + all_images
+            if opts.grid_save:
+                images.save_image(grid, p.outpath_grids, "grid", processed.all_seeds[0], processed.all_prompts[0], opts.grid_format, info=processed.infotext(p, 0), short_filename=not opts.grid_extended_filename, p=p, grid=True)
         processed.images = all_images
 
         # restore original CFGDenoiser.forward
