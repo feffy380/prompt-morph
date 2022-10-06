@@ -12,4 +12,4 @@ An explanation of multi-cond guidance from Birch-san can be found [here](https:/
 [morbin_time.webm](https://user-images.githubusercontent.com/114889020/193788624-872bc76c-d045-458f-8e9c-8a13815017e8.webm)
 
 # Credits
-- Multi-cond guidance code borrowed from [Birch-san](https://github.com/Birch-san/stable-diffusion/blob/birch-mps-waifu/scripts/txt2img_fork.py)
+- Old multi-cond guidance code borrowed from [Birch-san](https://github.com/Birch-san/stable-diffusion/blob/birch-mps-waifu/scripts/txt2img_fork.py)
