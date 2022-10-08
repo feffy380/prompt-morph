@@ -10,7 +10,7 @@ from modules.shared import cmd_opts, opts, state
 
 
 """
-Interpolate from one prompt to another to create a morph sequence.
+Interpolate between two (or more) prompts and create an image at each step.
 """
 class Script(scripts.Script):
     def title(self):
@@ -21,9 +21,11 @@ class Script(scripts.Script):
 
     def ui(self, is_img2img):
         prompts = gr.TextArea(label="Prompt list", placeholder="Enter one prompt per line. Blanks lines will be ignored.")
-        n_images = gr.Slider(minimum=2, maximum=256, value=9, step=1, label="Number of images per transition")
+        n_images = gr.Slider(minimum=2, maximum=256, value=25, step=1, label="Number of images per transition")
+        save_video = gr.Checkbox(label='Save results as video', value=True)
+        video_fps = gr.Number(label='Frames per second', value=5)
 
-        return [prompts, n_images]
+        return [prompts, n_images, save_video, video_fps]
 
     def n_evenly_spaced(self, a, n):
         res = [a[math.ceil(i/(n-1) * (len(a)-1))] for i in range(n)]
@@ -38,7 +40,7 @@ class Script(scripts.Script):
             ]
         )
 
-    def run(self, p, prompts, n_images):
+    def run(self, p, prompts, n_images, save_video, video_fps):
         prompts = [line.strip() for line in prompts.splitlines()]
         prompts = [line for line in prompts if line != ""]
 
@@ -46,7 +48,7 @@ class Script(scripts.Script):
             print("prompt_morph: at least 2 prompts required")
             return Processed(p, [], p.seed)
 
-        state.job_count = 1 + (n_images - 1) * len(prompts)
+        state.job_count = 1 + (n_images - 1) * (len(prompts) - 1)
 
         # override batch count and size
         p.batch_size = 1
@@ -54,6 +56,14 @@ class Script(scripts.Script):
 
         # fix seed because we'll be reusing it
         processing.fix_seed(p)
+
+        if save_video:
+            import numpy as np
+            try:
+                import moviepy.video.io.ImageSequenceClip as ImageSequenceClip
+            except ImportError:
+                print(f"moviepy python module not installed. Will not be able to generate video.")
+                return Processed(p, [], p.seed)
 
         # write images to a numbered folder in morphs
         morph_path = os.path.join(p.outpath_samples, "morphs")
@@ -70,7 +80,6 @@ class Script(scripts.Script):
             res_indexes, prompt_flat_list, prompt_indexes = prompt_parser.get_multicond_prompt_list([start_prompt, target_prompt])
             prompt_weights, target_weights = res_indexes
 
-            # TODO: generate video directly with moviepy
             # TODO: integrate seed travel so end prompt can use different seed
             # one image for each interpolation step (including start and end)
             for i in range(n_images):
@@ -100,8 +109,12 @@ class Script(scripts.Script):
         processed.images = all_images
         if opts.return_grid:
             grid = images.image_grid(all_images)
-            processed.images  = [grid] + all_images
+            processed.images = [grid] + all_images
             if opts.grid_save:
                 images.save_image(grid, p.outpath_grids, "grid", processed.all_seeds[0], processed.prompt, opts.grid_format, info=processed.infotext(p, 0), short_filename=not opts.grid_extended_filename, p=p, grid=True)
+
+        if save_video:
+            clip = ImageSequenceClip.ImageSequenceClip([np.asarray(t) for t in all_images], fps=video_fps)
+            clip.write_videofile(os.path.join(morph_path, f"morph-{morph_number:05}.webm"), codec='libvpx-vp9', ffmpeg_params=['-pix_fmt', 'yuv420p', '-crf', '32', '-b:v', '0'], logger=None)
 
         return processed

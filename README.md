@@ -1,8 +1,9 @@
 # prompt-morph
 Generate morph sequences with Stable Diffusion using multi-cond guidance.
 
-# Usage
-This is a script for AUTOMATIC1111/stable-diffusion-webui. Install by copying it into the `scripts` directory.
+# Installation
+1. Copy `prompt_morph.py` into the `scripts` folder in [AUTOMATIC1111/stable-diffusion-webui](https://github.com/AUTOMATIC1111/stable-diffusion-webui)
+1. Add `moviepy==1.0.3` to `requirements_versions.txt`
 
 Enter at least two prompts in the text area in the script interface (one per line). If you use a negative prompt, it will apply to the whole sequence.
 The script creates a `morphs` directory in your output directory and saves each sequence in its own folder here.  
