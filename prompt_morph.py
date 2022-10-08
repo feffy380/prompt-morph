@@ -97,11 +97,11 @@ class Script(scripts.Script):
         # limit max images shown to avoid lagging out the interface
         if len(all_images) > 25:
             all_images = self.n_evenly_spaced(all_images, 25)
+        processed.images = all_images
         if opts.return_grid:
             grid = images.image_grid(all_images)
-            all_images  = [grid] + all_images
+            processed.images  = [grid] + all_images
             if opts.grid_save:
                 images.save_image(grid, p.outpath_grids, "grid", processed.all_seeds[0], processed.prompt, opts.grid_format, info=processed.infotext(p, 0), short_filename=not opts.grid_extended_filename, p=p, grid=True)
-        processed.images = all_images
 
         return processed
