@@ -1,5 +1,5 @@
 # prompt-morph
-Generate morph sequences with Stable Diffusion using multi-cond guidance.
+Generate morph sequences with Stable Diffusion. Interpolate between two or more prompts and create an image at each step.
 
 # Installation
 1. Copy `prompt_morph.py` into the `scripts` folder in [AUTOMATIC1111/stable-diffusion-webui](https://github.com/AUTOMATIC1111/stable-diffusion-webui)
