@@ -103,13 +103,13 @@ class Script(scripts.Script):
         processed.prompt = prompt
         processed.info = processed.infotext(p, 0)
 
-        # limit max images shown to avoid lagging out the interface
-        if len(all_images) > 25:
-            all_images = self.n_evenly_spaced(all_images, 25)
         processed.images = all_images
+        # limit max images shown to avoid lagging out the interface
+        if len(processed.images) > 25:
+            processed.images = self.n_evenly_spaced(processed.images, 25)
         if opts.return_grid:
-            grid = images.image_grid(all_images)
-            processed.images = [grid] + all_images
+            grid = images.image_grid(processed.images)
+            processed.images.insert(0, grid)
             if opts.grid_save:
                 images.save_image(grid, p.outpath_grids, "grid", processed.all_seeds[0], processed.prompt, opts.grid_format, info=processed.infotext(p, 0), short_filename=not opts.grid_extended_filename, p=p, grid=True)
 
