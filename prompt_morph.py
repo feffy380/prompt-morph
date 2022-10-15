@@ -13,7 +13,7 @@ def n_evenly_spaced(a, n):
     res = [a[math.ceil(i/(n-1) * (len(a)-1))] for i in range(n)]
     return res
 
-# build prompt with weights scaled by t in [0.0, 1.0]
+# build prompt with weights scaled by t
 def prompt_at_t(weight_indexes, prompt_list, t):
     return " AND ".join(
         [
@@ -34,7 +34,7 @@ class Script(scripts.Script):
         return not is_img2img
 
     def ui(self, is_img2img):
-        prompts = gr.TextArea(label="Prompt list", placeholder="Enter one prompt per line. Blanks lines will be ignored.")
+        prompts = gr.TextArea(label="Prompt list", placeholder="Enter one prompt per line. Blank lines will be ignored.")
         n_images = gr.Slider(minimum=2, maximum=256, value=25, step=1, label="Number of images per transition")
         save_video = gr.Checkbox(label='Save results as video', value=True)
         video_fps = gr.Number(label='Frames per second', value=5)
@@ -47,7 +47,7 @@ class Script(scripts.Script):
 
         if len(prompts) < 2:
             print("prompt_morph: at least 2 prompts required")
-            return Processed(p, [], p.seed)
+            return Processed(p, [], p.seed, info="prompt_morph: at least 2 prompts required")
 
         state.job_count = 1 + (n_images - 1) * (len(prompts) - 1)
 
