@@ -103,7 +103,7 @@ class Script(scripts.Script):
             clip = ImageSequenceClip.ImageSequenceClip([np.asarray(t) for t in all_images], fps=video_fps)
             clip.write_videofile(os.path.join(morph_path, f"morph-{morph_number:05}.webm"), codec='libvpx-vp9', ffmpeg_params=['-pix_fmt', 'yuv420p', '-crf', '32', '-b:v', '0'], logger=None)
 
-        prompt = f"interpolate: {' | '.join([prompt for prompt in prompts])}"
+        prompt = "\n".join([prompt for prompt in prompts])
         # TODO: instantiate new Processed instead of overwriting one from the loop
         processed.all_prompts = [prompt]
         processed.prompt = prompt
