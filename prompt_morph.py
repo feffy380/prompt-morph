@@ -107,7 +107,6 @@ class Script(scripts.Script):
             processing.fix_seed(p)
             p.subseed_strength = 0
 
-            # TODO: integrate seed travel so end prompt can use different seed
             # one image for each interpolation step (including start and end)
             for i in range(n_images):
                 # first image is same as last of previous morph
