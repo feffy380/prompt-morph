@@ -34,38 +34,48 @@ class Script(scripts.Script):
         return not is_img2img
 
     def ui(self, is_img2img):
-        prompts = gr.TextArea(label="Prompt list", placeholder="Enter one prompt per line. Blank lines will be ignored.")
-        n_images = gr.Slider(minimum=2, maximum=256, value=25, step=1, label="Number of images per transition")
+        i1 = gr.HTML("<p style=\"margin-bottom:0.75em\">Keyframe Format: <br>Seed | Prompt or just Prompt</p>")
+        prompt_list = gr.TextArea(label="Prompt list", placeholder="Enter one prompt per line. Blank lines will be ignored.")
+        n_images = gr.Slider(minimum=2, maximum=256, value=25, step=1, label="Number of images between keyframes")
         save_video = gr.Checkbox(label='Save results as video', value=True)
         video_fps = gr.Number(label='Frames per second', value=5)
 
-        return [prompts, n_images, save_video, video_fps]
+        return [i1, prompt_list, n_images, save_video, video_fps]
 
-    def run(self, p, prompts, n_images, save_video, video_fps):
-        prompts = [line.strip() for line in prompts.splitlines()]
-        prompts = [line for line in prompts if line != ""]
-
-        if len(prompts) < 2:
-            print("prompt_morph: at least 2 prompts required")
-            return Processed(p, [], p.seed, info="prompt_morph: at least 2 prompts required")
-
-        state.job_count = 1 + (n_images - 1) * (len(prompts) - 1)
-
+    def run(self, p, i1, prompt_list, n_images, save_video, video_fps):
         # override batch count and size
         p.batch_size = 1
         p.n_iter = 1
 
-        # fix seed because we'll be reusing it
-        processing.fix_seed(p)
+        prompts = []
+        for line in prompt_list.splitlines():
+            line = line.strip()
+            if line == '':
+                continue
+            prompt_args = line.split('|')
+            if len(prompt_args) == 1:  # no args
+                seed, prompt = '', prompt_args[0]
+            else:
+                seed, prompt = prompt_args
+            prompts.append((seed.strip(), prompt.strip()))
+
+        if len(prompts) < 2:
+            msg = "prompt_morph: at least 2 prompts required"
+            print(msg)
+            return Processed(p, [], p.seed, info=msg)
+
+        state.job_count = 1 + (n_images - 1) * (len(prompts) - 1)
 
         if save_video:
             import numpy as np
             try:
                 import moviepy.video.io.ImageSequenceClip as ImageSequenceClip
             except ImportError:
-                print(f"moviepy python module not installed. Will not be able to generate video.")
-                return Processed(p, [], p.seed)
+                msg = "moviepy python module not installed. Will not be able to generate video."
+                print(msg)
+                return Processed(p, [], p.seed, info=msg)
 
+        # TODO: use a timestamp instead
         # write images to a numbered folder in morphs
         morph_path = os.path.join(p.outpath_samples, "morphs")
         os.makedirs(morph_path, exist_ok=True)
@@ -76,10 +86,26 @@ class Script(scripts.Script):
         all_images = []
         for n in range(1, len(prompts)):
             # parsed prompts
-            start_prompt = prompts[n-1]
-            target_prompt = prompts[n]
+            start_seed, start_prompt = prompts[n-1]
+            target_seed, target_prompt = prompts[n]
             res_indexes, prompt_flat_list, prompt_indexes = prompt_parser.get_multicond_prompt_list([start_prompt, target_prompt])
             prompt_weights, target_weights = res_indexes
+
+            # fix seeds. interpret '' as use previous seed
+            if start_seed != '':
+                if start_seed == '-1':
+                    start_seed = -1
+                p.seed = start_seed
+            processing.fix_seed(p)
+
+            if target_seed == '':
+                p.subseed = p.seed
+            else:
+                if target_seed == '-1':
+                    target_seed = -1
+                p.subseed = target_seed
+            processing.fix_seed(p)
+            p.subseed_strength = 0
 
             # TODO: integrate seed travel so end prompt can use different seed
             # one image for each interpolation step (including start and end)
@@ -89,11 +115,14 @@ class Script(scripts.Script):
                     continue
                 state.job = f"Morph {n}/{len(prompts)-1}, image {i+1}/{n_images}"
 
-                # update prompt weights
+                # TODO: optimize when weight is zero
+                # update prompt weights and subseed strength
                 t = i / (n_images - 1)
                 scaled_prompt = prompt_at_t(prompt_weights, prompt_flat_list, 1.0 - t)
                 scaled_target = prompt_at_t(target_weights, prompt_flat_list, t)
                 p.prompt = f'{scaled_prompt} AND {scaled_target}'
+                if p.seed != p.subseed:
+                    p.subseed_strength = t
 
                 processed = process_images(p)
                 if not state.interrupted:
@@ -103,7 +132,7 @@ class Script(scripts.Script):
             clip = ImageSequenceClip.ImageSequenceClip([np.asarray(t) for t in all_images], fps=video_fps)
             clip.write_videofile(os.path.join(morph_path, f"morph-{morph_number:05}.webm"), codec='libvpx-vp9', ffmpeg_params=['-pix_fmt', 'yuv420p', '-crf', '32', '-b:v', '0'], logger=None)
 
-        prompt = "\n".join([prompt for prompt in prompts])
+        prompt = "\n".join([f"{seed} | {prompt}" for seed, prompt in prompts])
         # TODO: instantiate new Processed instead of overwriting one from the loop
         processed.all_prompts = [prompt]
         processed.prompt = prompt
