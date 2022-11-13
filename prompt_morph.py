@@ -132,28 +132,9 @@ class Script(scripts.Script):
 
                 # TODO: optimize when weight is zero
                 # update prompt weights and subseed strength
-                pct = i / (n_images - 1)
-                if (morph_func == F_LINEAR):
-                    # 0 to 1
-                    t = pct
-                elif (morph_func == F_SINE):
-                    # 0 is 1 and pi is -1
-                    pct_pi = math.pi * pct
-                    t = 0.5 - (0.5*math.cos(pct_pi))
-                elif (morph_func == F_HALF_PARABOLIC):
-                    # TODO: Figure out a function that is fast at beginning and end, but slow in the middle.
-                    t = ((((2 * pct) - 1) * abs((2 * pct) - 1)) / 2) + 0.5
-                elif (morph_func == F_PARABOLIC):
-                    t = pct**2
-                elif (morph_func == F_PARABOLIC_BOUNCE):
-                    if (n % 2 == 1):
-                        t = pct**2
-                    else:
-                        t = 1 - ((1 - pct)**2)
-                else:
-                    # default to linear
-                    t = pct
-                print ("MORPH FUNC IS " + morph_func + " at step " + str(i) + "/" + str(n_images) +", pct=" + str(pct) + ", t=" + str(t))
+                x = i / (n_images - 1)
+                t = self.calculate_prompt_weight(morph_func, n, x)
+                #print ("MORPH FUNC IS " + morph_func + " at step " + str(i) + "/" + str(n_images) +", x=" + str(x) + ", t=" + str(t))
                 scaled_prompt = prompt_at_t(prompt_weights, prompt_flat_list, 1.0 - t)
                 scaled_target = prompt_at_t(target_weights, prompt_flat_list, t)
                 p.prompt = f'{scaled_prompt} AND {scaled_target}'
@@ -186,3 +167,30 @@ class Script(scripts.Script):
                 images.save_image(grid, p.outpath_grids, "grid", processed.all_seeds[0], processed.prompt, opts.grid_format, info=processed.infotext(p, 0), short_filename=not opts.grid_extended_filename, p=p, grid=True)
 
         return processed
+
+    def calculate_prompt_weight(self, morph_func, n, x):
+
+        if (morph_func == F_LINEAR):
+            # 0 to 1
+            t = pct
+        elif (morph_func == F_SINE):
+            # 0 is 1 and pi is -1 - sort of an s-shape
+            pct_pi = math.pi * pct
+            t = 0.5 - (0.5*math.cos(pct_pi))
+        elif (morph_func == F_HALF_PARABOLIC):
+            # a parabola where the left half is flipped down
+            t = ((((2 * pct) - 1) * abs((2 * pct) - 1)) / 2) + 0.5
+        elif (morph_func == F_PARABOLIC):
+            # accelerate
+            t = pct**2
+        elif (morph_func == F_PARABOLIC_BOUNCE):
+            # Alternate between accelerating and decelerating
+            if (n % 2 == 1):
+                t = pct**2
+            else:
+                t = 1 - ((1 - pct)**2)
+        else:
+            # default to linear
+            print ("Morph Function " + morph_func + " not recognized. Using " + F_LINEAR + " instead.")
+            t = pct
+        return t
