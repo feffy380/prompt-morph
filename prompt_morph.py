@@ -7,6 +7,7 @@ import torch
 from modules import images, processing, prompt_parser, scripts, shared
 from modules.processing import Processed, process_images
 from modules.shared import cmd_opts, opts, state
+from pathlib import Path
 
 
 def n_evenly_spaced(a, n):
@@ -77,10 +78,11 @@ class Script(scripts.Script):
 
         # TODO: use a timestamp instead
         # write images to a numbered folder in morphs
-        morph_path = os.path.join(p.outpath_samples, "morphs")
+        # morph_path = os.path.join(p.outpath_samples, "morphs")
+        morph_path = Path(p.outpath_samples) / "morphs"
         os.makedirs(morph_path, exist_ok=True)
         morph_number = images.get_next_sequence_number(morph_path, "")
-        morph_path = os.path.join(morph_path, f"{morph_number:05}")
+        morph_path = morph_path / f"{morph_number:05}.webm"
         p.outpath_samples = morph_path
 
         all_images = []
@@ -129,7 +131,7 @@ class Script(scripts.Script):
 
         if save_video:
             clip = ImageSequenceClip.ImageSequenceClip([np.asarray(t) for t in all_images], fps=video_fps)
-            clip.write_videofile(os.path.join(morph_path, f"morph-{morph_number:05}.webm"), codec='libvpx-vp9', ffmpeg_params=['-pix_fmt', 'yuv420p', '-crf', '32', '-b:v', '0'], logger=None)
+            clip.write_videofile(str(morph_path), codec='libvpx-vp9', ffmpeg_params=['-pix_fmt', 'yuv420p', '-crf', '32', '-b:v', '0'], logger=None)
 
         prompt = "\n".join([f"{seed} | {prompt}" for seed, prompt in prompts])
         # TODO: instantiate new Processed instead of overwriting one from the loop
