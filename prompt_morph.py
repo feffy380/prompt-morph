@@ -23,6 +23,19 @@ def prompt_at_t(weight_indexes, prompt_list, t):
         ]
     )
 
+F_LINEAR = "Linear"
+F_SINE = "Sine (slow, fast, slow)"
+F_HALF_PARABOLIC = "S-Parabola (fast, slow, fast)"
+F_PARABOLIC = "Parabolic (slow, fast, faster)"
+F_PARABOLIC_BOUNCE = "Parabolic Bounce (parabola, reverse every other keyframe)"
+
+MORPH_FUNCTIONS = [
+    F_LINEAR,
+    F_SINE,
+    F_HALF_PARABOLIC,
+    F_PARABOLIC,
+    F_PARABOLIC_BOUNCE,
+]
 
 """
 Interpolate between two (or more) prompts and create an image at each step.
@@ -41,9 +54,10 @@ class Script(scripts.Script):
         save_video = gr.Checkbox(label='Save results as video', value=True)
         video_fps = gr.Number(label='Frames per second', value=5)
 
-        return [i1, prompt_list, n_images, save_video, video_fps]
+        morph_func = gr.Dropdown(label="Morph Function", choices=MORPH_FUNCTIONS, value=F_LINEAR, type="value", elem_id="morph_func")
+        return [i1, prompt_list, morph_func, n_images, save_video, video_fps]
 
-    def run(self, p, i1, prompt_list, n_images, save_video, video_fps):
+    def run(self, p, i1, prompt_list, morph_func, n_images, save_video, video_fps):
         # override batch count and size
         p.batch_size = 1
         p.n_iter = 1
@@ -51,8 +65,10 @@ class Script(scripts.Script):
         prompts = []
         for line in prompt_list.splitlines():
             line = line.strip()
-            if line == '':
+            if line == '' or line.startswith("#"):
                 continue
+
+            # TODO: This breaks the :| facial expression used by WaifuDiffusion.
             prompt_args = line.split('|')
             if len(prompt_args) == 1:  # no args
                 seed, prompt = '', prompt_args[0]
@@ -118,7 +134,9 @@ class Script(scripts.Script):
 
                 # TODO: optimize when weight is zero
                 # update prompt weights and subseed strength
-                t = i / (n_images - 1)
+                x = i / (n_images - 1)
+                t = self.calculate_prompt_weight(morph_func, n, x)
+                #print ("MORPH FUNC IS " + morph_func + " at step " + str(i) + "/" + str(n_images) +", x=" + str(x) + ", t=" + str(t))
                 scaled_prompt = prompt_at_t(prompt_weights, prompt_flat_list, 1.0 - t)
                 scaled_target = prompt_at_t(target_weights, prompt_flat_list, t)
                 p.prompt = f'{scaled_prompt} AND {scaled_target}'
@@ -151,3 +169,30 @@ class Script(scripts.Script):
                 images.save_image(grid, p.outpath_grids, "grid", processed.all_seeds[0], processed.prompt, opts.grid_format, info=processed.infotext(p, 0), short_filename=not opts.grid_extended_filename, p=p, grid=True)
 
         return processed
+
+    def calculate_prompt_weight(self, morph_func, n, x):
+
+        if (morph_func == F_LINEAR):
+            # 0 to 1
+            t = x
+        elif (morph_func == F_SINE):
+            # 0 is 1 and pi is -1 - sort of an s-shape
+            x_pi = math.pi * x
+            t = 0.5 - (0.5*math.cos(x_pi))
+        elif (morph_func == F_HALF_PARABOLIC):
+            # a parabola where the left half is flipped down
+            t = ((((2 * x) - 1) * abs((2 * x) - 1)) / 2) + 0.5
+        elif (morph_func == F_PARABOLIC):
+            # accelerate
+            t = x**2
+        elif (morph_func == F_PARABOLIC_BOUNCE):
+            # Alternate between accelerating and decelerating
+            if (n % 2 == 1):
+                t = x**2
+            else:
+                t = 1 - ((1 - x)**2)
+        else:
+            # default to linear
+            print ("Morph Function " + morph_func + " not recognized. Using " + F_LINEAR + " instead.")
+            t = x0
+        return t
