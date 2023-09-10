@@ -2,8 +2,13 @@
 Generate morph sequences with Stable Diffusion. Interpolate between two or more prompts and create an image at each step.
 
 # Installation
+Automatic Install:
+1. Add this repository's url (https://github.com/feffy380/prompt-morph.git) to SD Web UI under Extensions -> Install from URL
+2. Restart UI
+
+Manual Install:
 1. Copy `prompt_morph.py` into the `scripts` folder in [AUTOMATIC1111/stable-diffusion-webui](https://github.com/AUTOMATIC1111/stable-diffusion-webui)
-1. Add `moviepy==1.0.3` to `requirements_versions.txt` or install it manually
+2. Add `moviepy==1.0.3` to `requirements_versions.txt` or install it manually
 
 Enter at least two prompts in the text area in the script interface (one per line). If you use a negative prompt, it will apply to the whole sequence.
 The script creates a `morphs` directory in your output directory and saves each sequence in its own folder here.  
